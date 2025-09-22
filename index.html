@@ -787,57 +787,11 @@
             document.removeEventListener('mouseup', stopResize);
         }
 
-        function addCropMarks() {
-            const ballot = document.getElementById('ballot');
-            const cropMarksContainer = document.createElement('div');
-            cropMarksContainer.className = 'crop-marks';
-            
-            // Traits de coupe aux 4 coins
-            const corners = [
-                { top: '-15mm', left: '-15mm' },
-                { top: '-15mm', right: '-15mm' },
-                { bottom: '-15mm', left: '-15mm' },
-                { bottom: '-15mm', right: '-15mm' }
-            ];
-            
-            corners.forEach(corner => {
-                // Trait horizontal
-                const hMark = document.createElement('div');
-                hMark.className = 'crop-mark horizontal';
-                Object.assign(hMark.style, corner);
-                if (corner.right) hMark.style.left = 'auto';
-                if (corner.bottom) hMark.style.top = 'auto';
-                cropMarksContainer.appendChild(hMark);
-                
-                // Trait vertical
-                const vMark = document.createElement('div');
-                vMark.className = 'crop-mark vertical';
-                Object.assign(vMark.style, corner);
-                if (corner.right) vMark.style.left = 'auto';
-                if (corner.bottom) vMark.style.top = 'auto';
-                cropMarksContainer.appendChild(vMark);
-            });
-            
-            ballot.appendChild(cropMarksContainer);
-        }
-
-        function addBleedArea() {
-            const ballot = document.getElementById('ballot');
-            const bleedArea = document.createElement('div');
-            bleedArea.className = 'bleed-area';
-            ballot.appendChild(bleedArea);
-        }
-
+       
         async function generatePDF() {
             const ballot = document.getElementById('ballot');
             const listName = document.getElementById('listName').value.trim() || 'Bulletin_de_Vote';
-            
-            // Ajouter les traits de coupe et bords perdus si demandés
-            const cropMarks = document.getElementById('cropMarks').checked;
-            const bleedMarks = document.getElementById('bleedMarks').checked;
-            
-            if (cropMarks) addCropMarks();
-            if (bleedMarks) addBleedArea();
+           
             
             // Afficher un message de chargement
             const originalText = document.querySelector('button[onclick="generatePDF()"]').textContent;
