@@ -612,30 +612,7 @@
 
 
 
-        function addVersoPage(ballotClass, fontFamily, fontSize, textColor) {
-            const ballotPreview = document.getElementById('ballotPreview');
-            
-            // Ajouter un séparateur
-            const separator = document.createElement('div');
-            separator.className = 'no-print my-8 text-center';
-            separator.innerHTML = '<div class="border-t border-gray-300 mb-4"></div><p class="text-gray-600 font-medium">VERSO (Page 2)</p><div class="border-t border-gray-300 mt-4"></div>';
-            ballotPreview.appendChild(separator);
-            
-            // Créer le verso
-            const verso = document.createElement('div');
-            verso.id = 'ballotVerso';
-            verso.className = `bg-white border-2 border-gray-300 mx-auto relative overflow-hidden ${ballotClass}`;
-            verso.style.fontFamily = fontFamily;
-            verso.style.fontSize = fontSize + 'px';
-            verso.style.padding = '20px';
-            verso.style.backgroundColor = '#ffffff';
-            verso.style.color = textColor;
-            verso.innerHTML = '<div class="h-full flex items-center justify-center text-gray-400"><p>Verso - Page blanche</p></div>';
-            
-            ballotPreview.appendChild(verso);
-        }
-
-        function updateResizeHandlePosition() {
+           function updateResizeHandlePosition() {
             const img = document.getElementById('ballotImage');
             const handle = document.getElementById('resizeHandle');
             if (img && handle) {
