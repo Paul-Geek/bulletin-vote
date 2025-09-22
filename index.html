@@ -1,0 +1,1048 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Bulletins de Vote</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { margin: 0; padding: 0; }
+            #ballot { 
+                border: none !important; 
+                box-shadow: none !important;
+                margin: 0 !important;
+            }
+        }
+        .print-only { display: none; }
+        
+        .crop-marks {
+            position: absolute;
+            pointer-events: none;
+        }
+        .crop-mark {
+            position: absolute;
+            background-color: black;
+        }
+        .crop-mark.horizontal {
+            width: 10mm;
+            height: 0.5mm;
+        }
+        .crop-mark.vertical {
+            width: 0.5mm;
+            height: 10mm;
+        }
+        
+        .bleed-area {
+            position: absolute;
+            top: -3mm;
+            left: -3mm;
+            right: -3mm;
+            bottom: -3mm;
+            border: 1px dashed #ccc;
+            pointer-events: none;
+        }
+        
+        .ballot-a5 {
+            width: 210mm;
+            height: 148mm;
+        }
+        .ballot-a4 {
+            width: 297mm;
+            height: 210mm;
+        }
+        
+        .draggable-image {
+            cursor: move;
+            position: absolute;
+            z-index: 10;
+            border: 2px dashed transparent;
+            transition: border-color 0.2s;
+            min-width: 30px;
+            min-height: 30px;
+            max-width: 300px;
+            max-height: 300px;
+            object-fit: contain;
+        }
+        .draggable-image:hover {
+            border-color: #3b82f6;
+        }
+        .draggable-image.dragging {
+            border-color: #ef4444;
+            opacity: 0.8;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: se-resize;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 11;
+        }
+        .draggable-image:hover + .resize-handle,
+        .resize-handle:hover {
+            opacity: 1;
+        }
+        .resize-handle.resizing {
+            opacity: 1;
+            background: #ef4444;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-6 max-w-6xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">Générateur de Bulletins de Vote</h1>
+        
+        <!-- Interface de saisie -->
+        <div class="no-print bg-white rounded-lg shadow-lg p-6 mb-8">
+            <div class="grid md:grid-cols-2 gap-6">
+                <!-- Colonne gauche -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Nom de la liste</label>
+                        <input type="text" id="listName" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Entrez le nom de la liste">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Candidats au conseil municipal (un par ligne)</label>
+                        <textarea id="municipalCandidates" rows="8" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Entrez les candidats, un par ligne"></textarea>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Candidats au conseil communautaire (un par ligne)</label>
+                        <textarea id="communityCandidates" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Entrez les candidats, un par ligne"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Colonne droite -->
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Importer un visuel (PNG recommandé)</label>
+                        <input type="file" id="imageUpload" accept=".png" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+                        <div class="text-xs text-gray-600 mb-3">
+                            <strong>Format PNG recommandé</strong> pour conserver la transparence de votre logo
+                        </div>
+
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Police d'écriture</label>
+                        <select id="fontFamily" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="Arial">Arial</option>
+                            <option value="Times New Roman">Times New Roman</option>
+                            <option value="Helvetica">Helvetica</option>
+                            <option value="Georgia">Georgia</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Taille de la police</label>
+                        <input type="number" id="fontSize" value="12" min="8" max="24" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Mode couleur</label>
+                        <select id="colorMode" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
+                            <option value="rgb">RVB (Rouge, Vert, Bleu) - Pour imprimante laser (1000-1500 ex.)</option>
+                            <option value="cmyk">CMJN (Cyan, Magenta, Jaune, Noir) - Pour impression offset</option>
+                        </select>
+                        <div class="text-xs text-gray-600 mb-3">
+                            <strong>RVB :</strong> Pour impression laser en petites quantités. <strong>CMJN :</strong> Pour impression offset en grandes quantités.
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Couleur du bulletin (texte et images)</label>
+                        
+                        <!-- Mode RVB -->
+                        <div id="rgbControls" class="space-y-2">
+                            <div class="flex space-x-2">
+                                <input type="color" id="colorPicker" value="#000000" class="w-16 h-10 border border-gray-300 rounded cursor-pointer">
+                                <input type="text" id="colorHex" value="#000000" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="#000000">
+                            </div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-600">Rouge (0-255)</label>
+                                    <input type="number" id="rgbR" value="0" min="0" max="255" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600">Vert (0-255)</label>
+                                    <input type="number" id="rgbG" value="0" min="0" max="255" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600">Bleu (0-255)</label>
+                                    <input type="number" id="rgbB" value="0" min="0" max="255" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mode CMJN -->
+                        <div id="cmykControls" class="space-y-2 hidden">
+                            <div class="grid grid-cols-4 gap-2">
+                                <div>
+                                    <label class="text-xs text-gray-600">Cyan (0-100%)</label>
+                                    <input type="number" id="cmykC" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600">Magenta (0-100%)</label>
+                                    <input type="number" id="cmykM" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600">Jaune (0-100%)</label>
+                                    <input type="number" id="cmykY" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-600">Noir (0-100%)</label>
+                                    <input type="number" id="cmykK" value="100" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-600">
+                                Aperçu approximatif : <span id="cmykPreview" class="inline-block w-4 h-4 border border-gray-300 rounded" style="background-color: #000000;"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Bulletin recto-verso</label>
+                        <select id="rectoVerso" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="false">Non - Recto uniquement</option>
+                            <option value="true">Oui - Recto-verso (utile pour listes longues)</option>
+                        </select>
+                        <div class="text-xs text-gray-600 mt-1">
+                            Le recto-verso peut être utile si vous avez beaucoup de candidats.
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Options d'impression professionnelle</label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="cropMarks" class="mr-2">
+                                <span class="text-sm">Ajouter les traits de coupe</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="bleedMarks" class="mr-2">
+                                <span class="text-sm">Ajouter les bords perdus (3mm)</span>
+                            </label>
+                        </div>
+                        <div class="text-xs text-gray-600 mt-2">
+                            Ces options sont utiles pour l'impression professionnelle
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 space-y-2">
+                        <button onclick="generateBallot()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-md transition duration-200">
+                            Générer le bulletin
+                        </button>
+                    </div>
+                    
+                    <div id="formatInfo" class="text-sm text-gray-600 p-3 bg-gray-100 rounded-md hidden">
+                        <strong>Format automatique :</strong> <span id="formatText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Aperçu du bulletin -->
+        <div id="ballotPreview" class="hidden">
+            <div class="no-print flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">Aperçu du bulletin</h2>
+                <div class="space-x-2">
+                    <button onclick="generatePDF()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md transition duration-200">
+                        Générer PDF
+                    </button>
+                    <button onclick="printBallot()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md transition duration-200">
+                        Imprimer
+                    </button>
+                    <button onclick="resetForm()" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-md transition duration-200">
+                        Nouveau bulletin
+                    </button>
+                </div>
+            </div>
+            
+            <div id="ballot" class="bg-white border-2 border-gray-300 mx-auto relative overflow-hidden" style="transform-origin: top left;">
+                <!-- Le contenu du bulletin sera généré ici -->
+            </div>
+            
+            <div class="no-print mt-4 text-sm text-gray-600 text-center">
+                <p>💡 Si vous avez ajouté une image, vous pouvez la <strong>déplacer</strong> en cliquant-glissant et la <strong>redimensionner</strong> avec le cercle bleu qui apparaît au survol</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedImage = null;
+        let isDragging = false;
+        let isResizing = false;
+        let dragOffset = { x: 0, y: 0 };
+        let resizeStartSize = { width: 0, height: 0 };
+        let resizeStartPos = { x: 0, y: 0 };
+
+        // Gestion de l'upload d'image
+        document.getElementById('imageUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file && (file.type === 'image/png' || file.type === 'image/jpeg' || file.type === 'image/jpg')) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Gestion des modes couleur
+        document.getElementById('colorMode').addEventListener('change', function() {
+            const isRGB = this.value === 'rgb';
+            document.getElementById('rgbControls').classList.toggle('hidden', !isRGB);
+            document.getElementById('cmykControls').classList.toggle('hidden', isRGB);
+        });
+
+        // Synchronisation RVB
+        document.getElementById('colorPicker').addEventListener('change', function() {
+            document.getElementById('colorHex').value = this.value;
+            updateRGBFromHex(this.value);
+        });
+        
+        document.getElementById('colorHex').addEventListener('input', function() {
+            if (/^#[0-9A-F]{6}$/i.test(this.value)) {
+                document.getElementById('colorPicker').value = this.value;
+                updateRGBFromHex(this.value);
+            }
+        });
+
+        // Synchronisation des valeurs RVB
+        ['rgbR', 'rgbG', 'rgbB'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                updateHexFromRGB();
+            });
+        });
+
+        // Synchronisation des valeurs CMJN
+        ['cmykC', 'cmykM', 'cmykY', 'cmykK'].forEach(id => {
+            document.getElementById(id).addEventListener('input', function() {
+                updateCMYKPreview();
+            });
+        });
+
+        function updateRGBFromHex(hex) {
+            const r = parseInt(hex.substr(1, 2), 16);
+            const g = parseInt(hex.substr(3, 2), 16);
+            const b = parseInt(hex.substr(5, 2), 16);
+            document.getElementById('rgbR').value = r;
+            document.getElementById('rgbG').value = g;
+            document.getElementById('rgbB').value = b;
+        }
+
+        function updateHexFromRGB() {
+            const r = parseInt(document.getElementById('rgbR').value) || 0;
+            const g = parseInt(document.getElementById('rgbG').value) || 0;
+            const b = parseInt(document.getElementById('rgbB').value) || 0;
+            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            document.getElementById('colorHex').value = hex;
+            document.getElementById('colorPicker').value = hex;
+        }
+
+        function updateCMYKPreview() {
+            const c = parseInt(document.getElementById('cmykC').value) || 0;
+            const m = parseInt(document.getElementById('cmykM').value) || 0;
+            const y = parseInt(document.getElementById('cmykY').value) || 0;
+            const k = parseInt(document.getElementById('cmykK').value) || 0;
+            
+            // Conversion approximative CMJN vers RVB pour l'aperçu
+            const r = Math.round(255 * (1 - c/100) * (1 - k/100));
+            const g = Math.round(255 * (1 - m/100) * (1 - k/100));
+            const b = Math.round(255 * (1 - y/100) * (1 - k/100));
+            
+            const hex = '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            document.getElementById('cmykPreview').style.backgroundColor = hex;
+        }
+
+        function getCurrentColor() {
+            const colorMode = document.getElementById('colorMode').value;
+            if (colorMode === 'rgb') {
+                return document.getElementById('colorPicker').value;
+            } else {
+                // Conversion CMJN vers RVB pour affichage
+                const c = parseInt(document.getElementById('cmykC').value) || 0;
+                const m = parseInt(document.getElementById('cmykM').value) || 0;
+                const y = parseInt(document.getElementById('cmykY').value) || 0;
+                const k = parseInt(document.getElementById('cmykK').value) || 0;
+                
+                const r = Math.round(255 * (1 - c/100) * (1 - k/100));
+                const g = Math.round(255 * (1 - m/100) * (1 - k/100));
+                const b = Math.round(255 * (1 - y/100) * (1 - k/100));
+                
+                return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+            }
+        }
+
+        function applyColorToImage(img, color) {
+            // Créer un canvas pour traiter l'image et la convertir en couleur unie
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = function() {
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                
+                // Dessiner l'image originale
+                ctx.drawImage(img, 0, 0);
+                
+                // Récupérer les données de pixels
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Convertir la couleur hex en RGB
+                const r = parseInt(color.substr(1, 2), 16);
+                const g = parseInt(color.substr(3, 2), 16);
+                const b = parseInt(color.substr(5, 2), 16);
+                
+                // Traiter chaque pixel
+                for (let i = 0; i < data.length; i += 4) {
+                    const red = data[i];
+                    const green = data[i + 1];
+                    const blue = data[i + 2];
+                    const alpha = data[i + 3];
+                    
+                    // Calculer la luminosité du pixel
+                    const brightness = (red * 0.299 + green * 0.587 + blue * 0.114);
+                    
+                    // Si le pixel est transparent ou très clair (blanc/quasi-blanc), le laisser tel quel
+                    if (alpha < 50 || brightness > 240) {
+                        // Garder le pixel original (transparent ou blanc)
+                        continue;
+                    } else {
+                        // Remplacer les pixels colorés par la couleur choisie
+                        data[i] = r;     // Rouge
+                        data[i + 1] = g; // Vert
+                        data[i + 2] = b; // Bleu
+                        data[i + 3] = alpha; // Garder la transparence originale
+                    }
+                }
+                
+                // Remettre les données modifiées
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Remplacer l'image par la version traitée
+                img.src = canvas.toDataURL();
+                img.style.filter = 'none';
+                img.style.mixBlendMode = 'normal';
+                img.style.backgroundColor = 'transparent';
+            };
+            
+            // Si l'image est déjà chargée, déclencher le traitement
+            if (img.complete) {
+                img.onload();
+            }
+        }
+
+        function generateBallot() {
+            const listName = document.getElementById('listName').value.trim();
+            const municipalText = document.getElementById('municipalCandidates').value.trim();
+            const communityText = document.getElementById('communityCandidates').value.trim();
+            const fontFamily = document.getElementById('fontFamily').value;
+            const fontSize = document.getElementById('fontSize').value;
+            const textColor = getCurrentColor();
+            const isRectoVerso = document.getElementById('rectoVerso').value === 'true';
+
+            if (!listName || !municipalText) {
+                alert('Veuillez remplir au minimum le nom de la liste et les candidats au conseil municipal.');
+                return;
+            }
+
+            const municipalCandidates = municipalText.split('\n').filter(line => line.trim());
+            const communityCandidates = communityText.split('\n').filter(line => line.trim());
+
+            // Déterminer le format
+            const isA4 = municipalCandidates.length > 31;
+            const ballotClass = isA4 ? 'ballot-a4' : 'ballot-a5';
+            const formatText = isA4 ? '210 × 297 mm (A4 paysage)' : '148 × 210 mm (A5 paysage)';
+
+            // Afficher les informations de format
+            document.getElementById('formatInfo').classList.remove('hidden');
+            document.getElementById('formatText').textContent = formatText;
+
+            // Créer le bulletin
+            const ballot = document.getElementById('ballot');
+            ballot.className = `border-2 border-gray-300 mx-auto relative overflow-hidden ${ballotClass}`;
+            ballot.style.fontFamily = fontFamily;
+            ballot.style.fontSize = fontSize + 'px';
+            ballot.style.padding = '20px';
+            ballot.style.backgroundColor = '#ffffff';
+            ballot.style.color = textColor;
+
+            // Vérifier si on a des candidats communautaires
+            const hasCommunitySection = communityCandidates.length > 0;
+            
+            // Déterminer si on a besoin de colonnes multiples
+            const municipalNeedsColumns = municipalCandidates.length > 20;
+            const communityNeedsColumns = communityCandidates.length > 15;
+            
+            // Fonction pour diviser une liste en colonnes
+            function createColumnLayout(candidates, needsColumns, title, titleSize) {
+                if (!needsColumns || candidates.length === 0) {
+                    return `
+                        <h2 class="font-semibold mb-4 text-center" style="font-size: ${titleSize}px;">${title}</h2>
+                        <div class="flex-1">
+                            ${candidates.length > 0 ? 
+                                candidates.map((candidate, index) => 
+                                    `<div class="mb-1">${index + 1}. ${candidate}</div>`
+                                ).join('') : 
+                                '<div class="text-gray-500 italic">Aucun candidat</div>'
+                            }
+                        </div>
+                    `;
+                }
+                
+                // Diviser en deux colonnes
+                const midPoint = Math.ceil(candidates.length / 2);
+                const leftColumn = candidates.slice(0, midPoint);
+                const rightColumn = candidates.slice(midPoint);
+                
+                return `
+                    <h2 class="font-semibold mb-4 text-center" style="font-size: ${titleSize}px;">${title}</h2>
+                    <div class="flex-1 grid grid-cols-2 gap-4">
+                        <div>
+                            ${leftColumn.map((candidate, index) => 
+                                `<div class="mb-1">${index + 1}. ${candidate}</div>`
+                            ).join('')}
+                        </div>
+                        <div>
+                            ${rightColumn.map((candidate, index) => 
+                                `<div class="mb-1">${midPoint + index + 1}. ${candidate}</div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+
+            ballot.innerHTML = `
+                <!-- Titre centré -->
+                <div class="text-center mb-6">
+                    <h1 class="font-bold text-xl" style="font-size: ${Math.max(16, parseInt(fontSize) + 4)}px;">${listName}</h1>
+                </div>
+                
+                <!-- Contenu principal -->
+                <div class="${hasCommunitySection ? 'grid grid-cols-2 gap-8' : 'flex justify-center'} h-full">
+                    <!-- Conseil municipal -->
+                    <div class="flex flex-col ${!hasCommunitySection ? 'max-w-2xl' : ''}">
+                        ${createColumnLayout(
+                            municipalCandidates, 
+                            municipalNeedsColumns, 
+                            'Liste des candidats au conseil municipal',
+                            Math.max(14, parseInt(fontSize) + 2)
+                        )}
+                    </div>
+                    
+                    ${hasCommunitySection ? `
+                    <!-- Conseil communautaire -->
+                    <div class="flex flex-col">
+                        ${createColumnLayout(
+                            communityCandidates, 
+                            communityNeedsColumns, 
+                            'Liste des candidats au conseil communautaire',
+                            Math.max(14, parseInt(fontSize) + 2)
+                        )}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            // Ajouter l'image si elle existe
+            if (uploadedImage) {
+                addImageToBallot();
+            }
+
+            // Ajouter le verso si nécessaire
+            if (isRectoVerso) {
+                addVersoPage(ballotClass, fontFamily, fontSize, textColor);
+            }
+
+            // Afficher l'aperçu
+            document.getElementById('ballotPreview').classList.remove('hidden');
+            document.getElementById('ballotPreview').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function addImageToBallot() {
+            const ballot = document.getElementById('ballot');
+            
+            // Supprimer l'ancienne image et poignée si elles existent
+            const oldImg = document.getElementById('ballotImage');
+            const oldHandle = document.getElementById('resizeHandle');
+            if (oldImg) oldImg.remove();
+            if (oldHandle) oldHandle.remove();
+            
+            // Créer l'image finale directement
+            const img = document.createElement('img');
+            img.className = 'draggable-image';
+            img.id = 'ballotImage';
+            
+            // Fonction pour configurer l'image une fois chargée
+            const setupImage = () => {
+                // Attendre que l'image soit complètement chargée et que ses dimensions soient disponibles
+                if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+                    // Si les dimensions ne sont pas encore disponibles, réessayer
+                    setTimeout(setupImage, 50);
+                    return;
+                }
+                
+                // Calculer le ratio avec les vraies dimensions naturelles
+                const naturalRatio = img.naturalWidth / img.naturalHeight;
+                
+                // Définir une largeur de base et calculer la hauteur proportionnelle
+                const baseWidth = 100;
+                const proportionalHeight = Math.round(baseWidth / naturalRatio);
+                
+                // Appliquer les dimensions en forçant le ratio exact
+                img.style.width = baseWidth + 'px';
+                img.style.height = proportionalHeight + 'px';
+                img.style.objectFit = 'contain'; // S'assurer que l'image garde ses proportions
+                img.style.top = '20px';
+                img.style.right = '20px';
+                
+                console.log(`Image dimensions: ${img.naturalWidth}x${img.naturalHeight}, ratio: ${naturalRatio}, final: ${baseWidth}x${proportionalHeight}`);
+                
+                // Créer la poignée de redimensionnement
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+                resizeHandle.id = 'resizeHandle';
+                
+                // Événements de glisser-déposer pour l'image
+                img.addEventListener('mousedown', startDrag);
+                img.addEventListener('dragstart', e => e.preventDefault());
+                
+                // Événements de redimensionnement pour la poignée
+                resizeHandle.addEventListener('mousedown', startResize);
+                
+                ballot.appendChild(resizeHandle);
+                
+                // Positionner la poignée
+                updateResizeHandlePosition();
+                
+                // Appliquer la couleur sélectionnée à l'image
+                const currentColor = getCurrentColor();
+                applyColorToImage(img, currentColor);
+            };
+            
+            // Configurer l'image
+            img.onload = setupImage;
+            img.src = uploadedImage;
+            
+            // Ajouter l'image au DOM immédiatement
+            ballot.appendChild(img);
+            
+            // Si l'image est déjà en cache, déclencher setup manuellement
+            if (img.complete && img.naturalWidth > 0) {
+                setupImage();
+            }
+        }
+
+
+
+        function addVersoPage(ballotClass, fontFamily, fontSize, textColor) {
+            const ballotPreview = document.getElementById('ballotPreview');
+            
+            // Ajouter un séparateur
+            const separator = document.createElement('div');
+            separator.className = 'no-print my-8 text-center';
+            separator.innerHTML = '<div class="border-t border-gray-300 mb-4"></div><p class="text-gray-600 font-medium">VERSO (Page 2)</p><div class="border-t border-gray-300 mt-4"></div>';
+            ballotPreview.appendChild(separator);
+            
+            // Créer le verso
+            const verso = document.createElement('div');
+            verso.id = 'ballotVerso';
+            verso.className = `bg-white border-2 border-gray-300 mx-auto relative overflow-hidden ${ballotClass}`;
+            verso.style.fontFamily = fontFamily;
+            verso.style.fontSize = fontSize + 'px';
+            verso.style.padding = '20px';
+            verso.style.backgroundColor = '#ffffff';
+            verso.style.color = textColor;
+            verso.innerHTML = '<div class="h-full flex items-center justify-center text-gray-400"><p>Verso - Page blanche</p></div>';
+            
+            ballotPreview.appendChild(verso);
+        }
+
+        function updateResizeHandlePosition() {
+            const img = document.getElementById('ballotImage');
+            const handle = document.getElementById('resizeHandle');
+            if (img && handle) {
+                const imgRect = img.getBoundingClientRect();
+                const ballotRect = document.getElementById('ballot').getBoundingClientRect();
+                
+                handle.style.left = (img.offsetLeft + img.offsetWidth - 10) + 'px';
+                handle.style.top = (img.offsetTop + img.offsetHeight - 10) + 'px';
+            }
+        }
+
+        function startDrag(e) {
+            if (isResizing) return;
+            
+            isDragging = true;
+            const img = e.target;
+            img.classList.add('dragging');
+            
+            const rect = img.getBoundingClientRect();
+            const ballotRect = document.getElementById('ballot').getBoundingClientRect();
+            
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', stopDrag);
+            e.preventDefault();
+        }
+
+        function drag(e) {
+            if (!isDragging || isResizing) return;
+            
+            const img = document.querySelector('.dragging');
+            const ballot = document.getElementById('ballot');
+            const ballotRect = ballot.getBoundingClientRect();
+            
+            let newX = e.clientX - ballotRect.left - dragOffset.x;
+            let newY = e.clientY - ballotRect.top - dragOffset.y;
+            
+            // Limiter aux bordures du bulletin
+            newX = Math.max(0, Math.min(newX, ballot.offsetWidth - img.offsetWidth));
+            newY = Math.max(0, Math.min(newY, ballot.offsetHeight - img.offsetHeight));
+            
+            img.style.left = newX + 'px';
+            img.style.top = newY + 'px';
+            img.style.right = 'auto';
+            
+            updateResizeHandlePosition();
+        }
+
+        function stopDrag() {
+            isDragging = false;
+            const img = document.querySelector('.dragging');
+            if (img) {
+                img.classList.remove('dragging');
+            }
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', stopDrag);
+        }
+
+        function startResize(e) {
+            isResizing = true;
+            const handle = e.target;
+            const img = document.getElementById('ballotImage');
+            
+            handle.classList.add('resizing');
+            
+            resizeStartSize.width = img.offsetWidth;
+            resizeStartSize.height = img.offsetHeight;
+            resizeStartPos.x = e.clientX;
+            resizeStartPos.y = e.clientY;
+            
+            document.addEventListener('mousemove', resize);
+            document.addEventListener('mouseup', stopResize);
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        function resize(e) {
+            if (!isResizing) return;
+            
+            const img = document.getElementById('ballotImage');
+            const ballot = document.getElementById('ballot');
+            
+            const deltaX = e.clientX - resizeStartPos.x;
+            const deltaY = e.clientY - resizeStartPos.y;
+            
+            // Utiliser la plus grande variation pour déterminer la nouvelle taille
+            const delta = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+            const direction = deltaX >= 0 ? 1 : -1;
+            
+            // Calculer les proportions originales de l'image
+            const aspectRatio = resizeStartSize.width / resizeStartSize.height;
+            
+            // Calculer la nouvelle largeur basée sur le mouvement
+            let newWidth = resizeStartSize.width + (delta * direction);
+            let newHeight = newWidth / aspectRatio;
+            
+            // Appliquer les limites de taille
+            newWidth = Math.max(30, Math.min(300, newWidth));
+            newHeight = newWidth / aspectRatio;
+            
+            // Vérifier que l'image reste dans les limites du bulletin
+            const maxWidth = ballot.offsetWidth - img.offsetLeft;
+            const maxHeight = ballot.offsetHeight - img.offsetTop;
+            
+            // Ajuster si l'image dépasse les limites
+            if (newWidth > maxWidth) {
+                newWidth = maxWidth;
+                newHeight = newWidth / aspectRatio;
+            }
+            if (newHeight > maxHeight) {
+                newHeight = maxHeight;
+                newWidth = newHeight * aspectRatio;
+            }
+            
+            // Appliquer les nouvelles dimensions
+            img.style.width = newWidth + 'px';
+            img.style.height = newHeight + 'px';
+            
+            updateResizeHandlePosition();
+        }
+
+        function stopResize() {
+            isResizing = false;
+            const handle = document.querySelector('.resizing');
+            if (handle) {
+                handle.classList.remove('resizing');
+            }
+            document.removeEventListener('mousemove', resize);
+            document.removeEventListener('mouseup', stopResize);
+        }
+
+        function addCropMarks() {
+            const ballot = document.getElementById('ballot');
+            const cropMarksContainer = document.createElement('div');
+            cropMarksContainer.className = 'crop-marks';
+            
+            // Traits de coupe aux 4 coins
+            const corners = [
+                { top: '-15mm', left: '-15mm' },
+                { top: '-15mm', right: '-15mm' },
+                { bottom: '-15mm', left: '-15mm' },
+                { bottom: '-15mm', right: '-15mm' }
+            ];
+            
+            corners.forEach(corner => {
+                // Trait horizontal
+                const hMark = document.createElement('div');
+                hMark.className = 'crop-mark horizontal';
+                Object.assign(hMark.style, corner);
+                if (corner.right) hMark.style.left = 'auto';
+                if (corner.bottom) hMark.style.top = 'auto';
+                cropMarksContainer.appendChild(hMark);
+                
+                // Trait vertical
+                const vMark = document.createElement('div');
+                vMark.className = 'crop-mark vertical';
+                Object.assign(vMark.style, corner);
+                if (corner.right) vMark.style.left = 'auto';
+                if (corner.bottom) vMark.style.top = 'auto';
+                cropMarksContainer.appendChild(vMark);
+            });
+            
+            ballot.appendChild(cropMarksContainer);
+        }
+
+        function addBleedArea() {
+            const ballot = document.getElementById('ballot');
+            const bleedArea = document.createElement('div');
+            bleedArea.className = 'bleed-area';
+            ballot.appendChild(bleedArea);
+        }
+
+        async function generatePDF() {
+            const ballot = document.getElementById('ballot');
+            const listName = document.getElementById('listName').value.trim() || 'Bulletin_de_Vote';
+            
+            // Ajouter les traits de coupe et bords perdus si demandés
+            const cropMarks = document.getElementById('cropMarks').checked;
+            const bleedMarks = document.getElementById('bleedMarks').checked;
+            
+            if (cropMarks) addCropMarks();
+            if (bleedMarks) addBleedArea();
+            
+            // Afficher un message de chargement
+            const originalText = document.querySelector('button[onclick="generatePDF()"]').textContent;
+            document.querySelector('button[onclick="generatePDF()"]').textContent = 'Génération PDF...';
+            document.querySelector('button[onclick="generatePDF()"]').disabled = true;
+            
+            try {
+                // Déterminer le format
+                const isA4 = ballot.classList.contains('ballot-a4');
+                const pdfWidth = isA4 ? 297 : 210; // mm
+                const pdfHeight = isA4 ? 210 : 148; // mm
+                
+                // Créer une copie du bulletin pour la capture
+                const ballotClone = ballot.cloneNode(true);
+                ballotClone.style.position = 'absolute';
+                ballotClone.style.left = '-9999px';
+                ballotClone.style.top = '0';
+                ballotClone.style.backgroundColor = '#ffffff';
+                ballotClone.style.transform = 'none';
+                ballotClone.style.boxShadow = 'none';
+                ballotClone.style.border = 'none';
+                document.body.appendChild(ballotClone);
+                
+                // Capturer le bulletin en image avec html2canvas
+                const canvas = await html2canvas(ballotClone, {
+                    backgroundColor: '#ffffff',
+                    scale: 2, // Haute résolution
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    width: ballotClone.offsetWidth,
+                    height: ballotClone.offsetHeight
+                });
+                
+                // Supprimer la copie
+                document.body.removeChild(ballotClone);
+                
+                // Créer le PDF avec jsPDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'mm',
+                    format: [pdfWidth, pdfHeight]
+                });
+                
+                // Convertir le canvas en image
+                const imgData = canvas.toDataURL('image/png');
+                
+                // Calculer les dimensions pour ajuster l'image au PDF
+                const imgWidth = pdfWidth;
+                const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+                
+                // Centrer l'image si nécessaire
+                const yOffset = imgHeight > pdfHeight ? 0 : (pdfHeight - imgHeight) / 2;
+                
+                // Ajouter l'image au PDF
+                pdf.addImage(imgData, 'PNG', 0, yOffset, imgWidth, Math.min(imgHeight, pdfHeight));
+                
+                // Ajouter les métadonnées
+                pdf.setProperties({
+                    title: `Bulletin de Vote - ${listName}`,
+                    subject: 'Bulletin de Vote Électoral',
+                    author: 'Générateur de Bulletins de Vote',
+                    creator: 'Canva Code'
+                });
+                
+                // Télécharger le PDF
+                const fileName = `Bulletin_${listName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+                pdf.save(fileName);
+                
+            } catch (error) {
+                console.error('Erreur lors de la génération du PDF:', error);
+                alert('Erreur lors de la génération du PDF. Veuillez réessayer ou utiliser la fonction "Imprimer".');
+            } finally {
+                // Restaurer le bouton
+                document.querySelector('button[onclick="generatePDF()"]').textContent = originalText;
+                document.querySelector('button[onclick="generatePDF()"]').disabled = false;
+                
+                // Nettoyer les éléments ajoutés
+                setTimeout(() => {
+                    document.querySelectorAll('.crop-marks, .bleed-area').forEach(el => el.remove());
+                }, 1000);
+            }
+        }
+
+        function printBallot() {
+            // Ajouter les traits de coupe et bords perdus si demandés
+            const cropMarks = document.getElementById('cropMarks').checked;
+            const bleedMarks = document.getElementById('bleedMarks').checked;
+            
+            if (cropMarks) addCropMarks();
+            if (bleedMarks) addBleedArea();
+            
+            // Créer une nouvelle fenêtre avec uniquement le bulletin
+            const ballot = document.getElementById('ballot');
+            const printWindow = window.open('', '_blank');
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Bulletin de Vote - Impression</title>
+                    <style>
+                        @page { 
+                            margin: 0; 
+                            size: ${ballot.classList.contains('ballot-a4') ? 'A4 landscape' : 'A5 landscape'};
+                        }
+                        body { 
+                            margin: 0; 
+                            padding: 0; 
+                            font-family: ${ballot.style.fontFamily};
+                            background: white;
+                        }
+                        ${document.querySelector('style').innerHTML}
+                        .no-print { display: none !important; }
+                    </style>
+                </head>
+                <body>
+                    ${ballot.outerHTML}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            
+            // Attendre le chargement puis imprimer
+            printWindow.onload = function() {
+                setTimeout(() => {
+                    printWindow.print();
+                    printWindow.close();
+                }, 500);
+            };
+            
+            // Nettoyer après impression
+            setTimeout(() => {
+                document.querySelectorAll('.crop-marks, .bleed-area').forEach(el => el.remove());
+            }, 1000);
+        }
+
+        function resetForm() {
+            document.getElementById('listName').value = '';
+            document.getElementById('municipalCandidates').value = '';
+            document.getElementById('communityCandidates').value = '';
+            document.getElementById('imageUpload').value = '';
+            document.getElementById('fontFamily').value = 'Arial';
+            document.getElementById('fontSize').value = '12';
+            document.getElementById('colorMode').value = 'rgb';
+            document.getElementById('colorPicker').value = '#000000';
+            document.getElementById('colorHex').value = '#000000';
+            document.getElementById('rgbR').value = '0';
+            document.getElementById('rgbG').value = '0';
+            document.getElementById('rgbB').value = '0';
+            document.getElementById('cmykC').value = '0';
+            document.getElementById('cmykM').value = '0';
+            document.getElementById('cmykY').value = '0';
+            document.getElementById('cmykK').value = '100';
+            document.getElementById('rectoVerso').value = 'false';
+            document.getElementById('rgbControls').classList.remove('hidden');
+            document.getElementById('cmykControls').classList.add('hidden');
+            
+            // Nettoyer l'aperçu
+            const ballotPreview = document.getElementById('ballotPreview');
+            ballotPreview.classList.add('hidden');
+            // Supprimer les éléments verso ajoutés dynamiquement
+            const extraElements = ballotPreview.querySelectorAll(':not(.no-print):not(#ballot)');
+            extraElements.forEach(el => {
+                if (el.id !== 'ballot') el.remove();
+            });
+            
+            document.getElementById('formatInfo').classList.add('hidden');
+            document.getElementById('cropMarks').checked = false;
+            document.getElementById('bleedMarks').checked = false;
+            uploadedImage = null;
+        }
+
+        // Mise à jour automatique du format lors de la saisie
+        document.getElementById('municipalCandidates').addEventListener('input', function() {
+            const candidates = this.value.split('\n').filter(line => line.trim());
+            if (candidates.length > 0) {
+                const isA4 = candidates.length > 31;
+                const formatText = isA4 ? '210 × 297 mm (A4 paysage)' : '148 × 210 mm (A5 paysage)';
+                document.getElementById('formatInfo').classList.remove('hidden');
+                document.getElementById('formatText').textContent = formatText;
+            }
+        });
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97f9475695429d54',t:'MTc1Nzk1MTQxNS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
