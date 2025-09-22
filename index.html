@@ -423,8 +423,6 @@
             const fontFamily = document.getElementById('fontFamily').value;
             const fontSize = document.getElementById('fontSize').value;
             const textColor = getCurrentColor();
-            const isRectoVerso = document.getElementById('rectoVerso').value === 'true';
-
             if (!listName || !municipalText) {
                 alert('Veuillez remplir au minimum le nom de la liste et les candidats au conseil municipal.');
                 return;
@@ -531,11 +529,6 @@
             // Ajouter l'image si elle existe
             if (uploadedImage) {
                 addImageToBallot();
-            }
-
-            // Ajouter le verso si nécessaire
-            if (isRectoVerso) {
-                addVersoPage(ballotClass, fontFamily, fontSize, textColor);
             }
 
             // Afficher l'aperçu
