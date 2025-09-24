@@ -355,8 +355,7 @@
                 return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
             }
         }
-
-   function colorizeImage(img, color) {
+function colorizeImage(img, color) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
@@ -405,6 +404,7 @@
         img.onload = applyColor;
     }
 }
+
 
 
         function generateBallot() {
