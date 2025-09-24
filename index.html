@@ -356,57 +356,51 @@
             }
         }
 
-       function applyColorToImage(img, color) {
+    function recolorImageWithTransparency(img, color) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
 
-    img.onload = function() {
+    img.onload = function () {
         canvas.width = img.naturalWidth;
         canvas.height = img.naturalHeight;
 
-        // Dessiner l'image originale
+        // Dessiner l'image sur le canvas
         ctx.drawImage(img, 0, 0);
 
-        // Récupérer les données de pixels
+        // Récupérer les données de l'image
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
 
-        // Convertir la couleur hex en RGB
+        // Convertir la couleur hexadécimale en valeurs RGB
         const rColor = parseInt(color.substr(1, 2), 16);
         const gColor = parseInt(color.substr(3, 2), 16);
         const bColor = parseInt(color.substr(5, 2), 16);
 
+        // Appliquer la couleur à chaque pixel
         for (let i = 0; i < data.length; i += 4) {
-            const red = data[i];
-            const green = data[i + 1];
-            const blue = data[i + 2];
             const alpha = data[i + 3];
 
-            if (alpha === 0) continue; // garder la transparence intacte
+            if (alpha === 0) continue; // Ignorer les pixels transparents
 
-            // Calculer la luminosité (valeur de gris)
-            const gray = red * 0.299 + green * 0.587 + blue * 0.114;
+            // Calculer la luminosité (luminance) du pixel
+            const luminance = 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
 
-            // Appliquer la couleur choisie en modulant l'intensité par la luminosité
-            data[i]     = rColor * (gray / 255);
-            data[i + 1] = gColor * (gray / 255);
-            data[i + 2] = bColor * (gray / 255);
-            // Alpha reste inchangé
+            // Appliquer la couleur en fonction de la luminosité
+            data[i] = rColor * (luminance / 255);
+            data[i + 1] = gColor * (luminance / 255);
+            data[i + 2] = bColor * (luminance / 255);
         }
 
+        // Mettre à jour l'image avec les nouvelles données
         ctx.putImageData(imageData, 0, 0);
-
-        // Remplacer l'image par la version recolorée
         img.src = canvas.toDataURL();
-        img.style.filter = 'none';
-        img.style.mixBlendMode = 'normal';
-        img.style.backgroundColor = 'transparent';
     };
 
     if (img.complete) {
         img.onload();
     }
 }
+
         function generateBallot() {
             const listName = document.getElementById('listName').value.trim();
             const municipalText = document.getElementById('municipalCandidates').value.trim();
