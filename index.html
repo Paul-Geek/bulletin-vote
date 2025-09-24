@@ -384,20 +384,14 @@
                     const blue = data[i + 2];
                     const alpha = data[i + 3];
                     
-                    // Calculer la luminosité du pixel
-                    const brightness = (red * 0.299 + green * 0.587 + blue * 0.114);
-                    
-                    // Si le pixel est transparent ou très clair (blanc/quasi-blanc), le laisser tel quel
-                    if (alpha < 50 || brightness > 240) {
-                        // Garder le pixel original (transparent ou blanc)
-                        continue;
-                    } else {
-                        // Remplacer les pixels colorés par la couleur choisie
-                        data[i] = r;     // Rouge
-                        data[i + 1] = g; // Vert
-                        data[i + 2] = b; // Bleu
-                        data[i + 3] = alpha; // Garder la transparence originale
-                    }
+                  // Convertir en niveaux de gris (luminosité)
+            const gray = r * 0.299 + g * 0.587 + b * 0.114;
+
+            // Appliquer la teinte choisie proportionnellement à la luminosité
+            data[i] = (rCol * gray) / 255;
+            data[i + 1] = (gCol * gray) / 255;
+            data[i + 2] = (bCol * gray) / 255;
+            data[i + 3] = alpha; // conserver l'alpha original
                 }
                 
                 // Remettre les données modifiées
