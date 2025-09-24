@@ -356,52 +356,65 @@
             }
         }
 
-       function applyColorToImage(img, color) {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    function process() {
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-
-        // Dessiner l'image originale
-        ctx.drawImage(img, 0, 0);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        const rCol = parseInt(color.substr(1, 2), 16);
-        const gCol = parseInt(color.substr(3, 2), 16);
-        const bCol = parseInt(color.substr(5, 2), 16);
-
-        for (let i = 0; i < data.length; i += 4) {
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const alpha = data[i + 3];
-
-            // Calculer la luminosité perceptuelle
-            const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-
-            // Appliquer la teinte choisie proportionnellement à la luminosité
-            data[i] = (rCol * gray) / 255;
-            data[i + 1] = (gCol * gray) / 255;
-            data[i + 2] = (bCol * gray) / 255;
-            data[i + 3] = alpha; // garder la transparence
+        function applyColorToImage(img, color) {
+            // Créer un canvas pour traiter l'image et la convertir en couleur unie
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            img.onload = function() {
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                
+                // Dessiner l'image originale
+                ctx.drawImage(img, 0, 0);
+                
+                // Récupérer les données de pixels
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+                
+                // Convertir la couleur hex en RGB
+                const r = parseInt(color.substr(1, 2), 16);
+                const g = parseInt(color.substr(3, 2), 16);
+                const b = parseInt(color.substr(5, 2), 16);
+                
+                // Traiter chaque pixel
+                for (let i = 0; i < data.length; i += 4) {
+                    const red = data[i];
+                    const green = data[i + 1];
+                    const blue = data[i + 2];
+                    const alpha = data[i + 3];
+                    
+                    // Calculer la luminosité du pixel
+                    const brightness = (red * 0.299 + green * 0.587 + blue * 0.114);
+                    
+                    // Si le pixel est transparent ou très clair (blanc/quasi-blanc), le laisser tel quel
+                    if (alpha < 50 || brightness > 240) {
+                        // Garder le pixel original (transparent ou blanc)
+                        continue;
+                    } else {
+                        // Remplacer les pixels colorés par la couleur choisie
+                        data[i] = r;     // Rouge
+                        data[i + 1] = g; // Vert
+                        data[i + 2] = b; // Bleu
+                        data[i + 3] = alpha; // Garder la transparence originale
+                    }
+                }
+                
+                // Remettre les données modifiées
+                ctx.putImageData(imageData, 0, 0);
+                
+                // Remplacer l'image par la version traitée
+                img.src = canvas.toDataURL();
+                img.style.filter = 'none';
+                img.style.mixBlendMode = 'normal';
+                img.style.backgroundColor = 'transparent';
+            };
+            
+            // Si l'image est déjà chargée, déclencher le traitement
+            if (img.complete) {
+                img.onload();
+            }
         }
-
-        ctx.putImageData(imageData, 0, 0);
-
-        // Remplacer l'image originale
-        img.src = canvas.toDataURL();
-    }
-
-    if (img.complete) {
-        process();
-    } else {
-        img.onload = process;
-    }
-}
 
         function generateBallot() {
             const listName = document.getElementById('listName').value.trim();
