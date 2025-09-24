@@ -356,65 +356,61 @@
             }
         }
 
-        function applyColorToImage(img, color) {
-            // Créer un canvas pour traiter l'image et la convertir en couleur unie
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            img.onload = function() {
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                
-                // Dessiner l'image originale
-                ctx.drawImage(img, 0, 0);
-                
-                // Récupérer les données de pixels
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                
-                // Convertir la couleur hex en RGB
-                const r = parseInt(color.substr(1, 2), 16);
-                const g = parseInt(color.substr(3, 2), 16);
-                const b = parseInt(color.substr(5, 2), 16);
-                
-                // Traiter chaque pixel
-                for (let i = 0; i < data.length; i += 4) {
-                    const red = data[i];
-                    const green = data[i + 1];
-                    const blue = data[i + 2];
-                    const alpha = data[i + 3];
-                    
-                    // Calculer la luminosité du pixel
-                    const brightness = (red * 0.299 + green * 0.587 + blue * 0.114);
-                    
-                    // Si le pixel est transparent ou très clair (blanc/quasi-blanc), le laisser tel quel
-                    if (alpha < 50 || brightness > 240) {
-                        // Garder le pixel original (transparent ou blanc)
-                        continue;
-                    } else {
-                        // Remplacer les pixels colorés par la couleur choisie
-                        data[i] = r;     // Rouge
-                        data[i + 1] = g; // Vert
-                        data[i + 2] = b; // Bleu
-                        data[i + 3] = alpha; // Garder la transparence originale
-                    }
-                }
-                
-                // Remettre les données modifiées
-                ctx.putImageData(imageData, 0, 0);
-                
-                // Remplacer l'image par la version traitée
-                img.src = canvas.toDataURL();
-                img.style.filter = 'none';
-                img.style.mixBlendMode = 'normal';
-                img.style.backgroundColor = 'transparent';
-            };
-            
-            // Si l'image est déjà chargée, déclencher le traitement
-            if (img.complete) {
-                img.onload();
-            }
+       function applyColorToImage(img, color) {
+    // Créer un canvas pour traiter l'image et la convertir en niveaux de gris teintés
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    img.onload = function () {
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+
+        // Dessiner l'image originale
+        ctx.drawImage(img, 0, 0);
+
+        // Récupérer les données de pixels
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+
+        // Convertir la couleur hex en RGB
+        const rBase = parseInt(color.substr(1, 2), 16);
+        const gBase = parseInt(color.substr(3, 2), 16);
+        const bBase = parseInt(color.substr(5, 2), 16);
+
+        // Traiter chaque pixel
+        for (let i = 0; i < data.length; i += 4) {
+            const red = data[i];
+            const green = data[i + 1];
+            const blue = data[i + 2];
+            const alpha = data[i + 3];
+
+            // Luminosité du pixel original (méthode perceptuelle)
+            const brightness = (red * 0.299 + green * 0.587 + blue * 0.114) / 255;
+
+            if (alpha < 50) continue; // garder les pixels très transparents
+
+            // Créer un gris teinté basé sur la luminosité et la couleur choisie
+            data[i] = Math.round(rBase * brightness);
+            data[i + 1] = Math.round(gBase * brightness);
+            data[i + 2] = Math.round(bBase * brightness);
+            // alpha inchangé
         }
+
+        // Appliquer les nouvelles données
+        ctx.putImageData(imageData, 0, 0);
+
+        // Remplacer l'image
+        img.src = canvas.toDataURL();
+        img.style.filter = 'none';
+        img.style.mixBlendMode = 'normal';
+        img.style.backgroundColor = 'transparent';
+    };
+
+    // Si l'image est déjà en cache, relancer manuellement
+    if (img.complete) {
+        img.onload();
+    }
+}
 
         function generateBallot() {
             const listName = document.getElementById('listName').value.trim();
