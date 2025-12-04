@@ -1,6 +1,21 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+    // Autorise uniquement ton propre domaine
+    const allowedDomain = "https://politicae.fr";
+
+    if (window.top !== window.self) {
+        // L’utilisateur regarde la page dans un iframe
+        if (document.referrer && !document.referrer.startsWith(allowedDomain)) {
+            // Quitte ou bloque l’affichage
+            document.body.innerHTML = "<h2>Accès non autorisé</h2>";
+            throw new Error("Iframe embedding not allowed");
+        }
+    }
+</script>
+
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Générateur de Bulletins de Vote</title>
