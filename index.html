@@ -356,66 +356,97 @@
             }
         }
 
-        function applyColorToImage(img, color) {
-            // Créer un canvas pour traiter l'image et la convertir en couleur unie
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            
-            img.onload = function() {
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                
-                // Dessiner l'image originale
-                ctx.drawImage(img, 0, 0);
-                
-                // Récupérer les données de pixels
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const data = imageData.data;
-                
-                // Convertir la couleur hex en RGB
-                const r = parseInt(color.substr(1, 2), 16);
-                const g = parseInt(color.substr(3, 2), 16);
-                const b = parseInt(color.substr(5, 2), 16);
-                
-                // Traiter chaque pixel
-                for (let i = 0; i < data.length; i += 4) {
-                    const red = data[i];
-                    const green = data[i + 1];
-                    const blue = data[i + 2];
-                    const alpha = data[i + 3];
-                    
-                    // Calculer la luminosité du pixel
-                    const brightness = (red * 0.299 + green * 0.587 + blue * 0.114);
-                    
-                    // Si le pixel est transparent ou très clair (blanc/quasi-blanc), le laisser tel quel
-                    if (alpha < 50 || brightness > 240) {
-                        // Garder le pixel original (transparent ou blanc)
-                        continue;
-                    } else {
-                        // Remplacer les pixels colorés par la couleur choisie
-                        data[i] = r;     // Rouge
-                        data[i + 1] = g; // Vert
-                        data[i + 2] = b; // Bleu
-                        data[i + 3] = alpha; // Garder la transparence originale
-                    }
-                }
-                
-                // Remettre les données modifiées
-                ctx.putImageData(imageData, 0, 0);
-                
-                // Remplacer l'image par la version traitée
-                img.src = canvas.toDataURL();
-                img.style.filter = 'none';
-                img.style.mixBlendMode = 'normal';
-                img.style.backgroundColor = 'transparent';
-            };
-            
-            // Si l'image est déjà chargée, déclencher le traitement
-            if (img.complete) {
-                img.onload();
-            }
-        }
 
+function applyColorToImage(img, color) {
+    // Sauvegarder les styles et attributs actuels
+    const currentWidth = img.style.width;
+    const currentHeight = img.style.height;
+    const currentLeft = img.style.left;
+    const currentTop = img.style.top;
+    const currentPosition = img.style.position;
+    const currentCursor = img.style.cursor;
+    
+    // Créer un canvas pour traiter l'image et appliquer un dégradé
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Sauvegarder la source originale si pas déjà fait
+    if (!img.dataset.originalSrc) {
+        img.dataset.originalSrc = img.src;
+    }
+    
+    // Créer une nouvelle image pour éviter les conflits
+    const tempImg = new Image();
+    tempImg.crossOrigin = "anonymous";
+    
+    tempImg.onload = function() {
+        canvas.width = tempImg.naturalWidth;
+        canvas.height = tempImg.naturalHeight;
+        
+        // Dessiner l'image originale
+        ctx.drawImage(tempImg, 0, 0);
+        
+        // Récupérer les données de pixels originales
+        const originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const imageData = ctx.createImageData(originalImageData);
+        
+        // Convertir la couleur hex en RGB
+        const targetR = parseInt(color.substr(1, 2), 16);
+        const targetG = parseInt(color.substr(3, 2), 16);
+        const targetB = parseInt(color.substr(5, 2), 16);
+        
+        // Traiter chaque pixel
+        for (let i = 0; i < imageData.data.length; i += 4) {
+            const r = originalImageData.data[i];
+            const g = originalImageData.data[i + 1];
+            const b = originalImageData.data[i + 2];
+            const a = originalImageData.data[i + 3];
+            
+            // Calculer la luminosité du pixel original (0-1)
+            const brightness = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+            
+            // Appliquer la courbe de transfert: couleur choisie -> blanc
+            imageData.data[i] = targetR + (255 - targetR) * brightness;
+            imageData.data[i + 1] = targetG + (255 - targetG) * brightness;
+            imageData.data[i + 2] = targetB + (255 - targetB) * brightness;
+            imageData.data[i + 3] = a;
+        }
+        
+        // Remettre les données modifiées
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Retirer les anciens événements
+        img.removeEventListener('mousedown', startDrag);
+        
+        // Remplacer l'image par la version traitée
+        img.src = canvas.toDataURL();
+        // Mettre à jour la position de la poignée après le changement
+setTimeout(() => {
+    updateResizeHandlePosition();
+}, 0);
+        // Restaurer tous les styles
+        img.style.width = currentWidth;
+        img.style.height = currentHeight;
+        img.style.left = currentLeft;
+        img.style.top = currentTop;
+        img.style.position = currentPosition;
+        img.style.cursor = currentCursor;
+        img.style.filter = 'none';
+        img.style.mixBlendMode = 'normal';
+        img.style.backgroundColor = 'transparent';
+        
+        // Réattacher l'événement de drag
+        img.addEventListener('mousedown', startDrag);
+    };
+    
+    // Charger l'image originale
+   // Bloquer temporairement le onload pour éviter de recréer les poignées
+const originalOnload = img.onload;
+img.onload = null;
+
+// Charger l'image originale
+tempImg.src = img.dataset.originalSrc || img.src;
+}
         function generateBallot() {
             const listName = document.getElementById('listName').value.trim();
             const municipalText = document.getElementById('municipalCandidates').value.trim();
