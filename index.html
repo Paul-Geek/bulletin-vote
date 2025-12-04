@@ -4,32 +4,7 @@
 
 
     <meta charset="UTF-8">
-   <script>
-  (function(){
-    // <-- Modifie cette liste avec les origines que tu veux autoriser (avec https:// ou http://)
-    const allowedOrigins = [
-      "https://politicae.fr",            // ton site
-            // variante www si nécessaire
-      // "https://autre-site-autorise.fr"
-    ];
-
-    if (window.top !== window.self) {
-      try {
-        // Si on peut lire window.top.location.origin (même origine), on le compare
-        const topOrigin = window.top.location.origin;
-        if (!allowedOrigins.includes(topOrigin)) {
-          // Bloque l'affichage
-          document.documentElement.innerHTML = "<h2>Accès non autorisé</h2>";
-          throw new Error("Iframe embedding not allowed: origin mismatch");
-        }
-      } catch (err) {
-        // Si accès cross-origin (lecture de window.top throw), on bloque aussi
-        document.documentElement.innerHTML = "<h2>Accès non autorisé</h2>";
-        throw new Error("Iframe embedding not allowed: cross-origin embed");
-      }
-    }
-  })();
-  </script>
+  
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Générateur de Bulletins de Vote</title>
