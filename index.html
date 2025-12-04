@@ -155,10 +155,10 @@
                         <label class="block text-sm font-medium text-gray-700 mb-2">Mode couleur</label>
                         <select id="colorMode" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2">
                             <option value="rgb">RVB (Rouge, Vert, Bleu) - Pour imprimante laser (1000-1500 ex.)</option>
-                            <option value="cmyk">CMJN (Cyan, Magenta, Jaune, Noir) - Pour impression offset</option>
+                            
                         </select>
                         <div class="text-xs text-gray-600 mb-3">
-                            <strong>RVB :</strong> Pour impression laser en petites quantités. <strong>CMJN :</strong> Pour impression offset en grandes quantités.
+                            <strong>RVB :</strong> Pour impression laser en petites quantités.
                         </div>
                     </div>
                     
@@ -187,30 +187,7 @@
                             </div>
                         </div>
                         
-                        <!-- Mode CMJN -->
-                        <div id="cmykControls" class="space-y-2 hidden">
-                            <div class="grid grid-cols-4 gap-2">
-                                <div>
-                                    <label class="text-xs text-gray-600">Cyan (0-100%)</label>
-                                    <input type="number" id="cmykC" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-gray-600">Magenta (0-100%)</label>
-                                    <input type="number" id="cmykM" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-gray-600">Jaune (0-100%)</label>
-                                    <input type="number" id="cmykY" value="0" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                                </div>
-                                <div>
-                                    <label class="text-xs text-gray-600">Noir (0-100%)</label>
-                                    <input type="number" id="cmykK" value="100" min="0" max="100" class="w-full px-2 py-1 border border-gray-300 rounded text-sm">
-                                </div>
-                            </div>
-                            <div class="text-xs text-gray-600">
-                                Aperçu approximatif : <span id="cmykPreview" class="inline-block w-4 h-4 border border-gray-300 rounded" style="background-color: #000000;"></span>
-                            </div>
-                        </div>
+
                     </div>
                     
                     <div class="pt-4 space-y-2">
